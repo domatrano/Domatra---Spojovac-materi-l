@@ -224,7 +224,7 @@
     background:var(--bad);color:#fff;font-size:12px;font-weight:800;margin-left:6px}
 
   .toast{
-    position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);
+    position:fixed;left:50%;bottom:280px;transform:translateX(-50%) translateY(20px);
     background:var(--good);color:#fff;padding:12px 18px;border-radius:24px;font-weight:700;
     opacity:0;transition:.25s;z-index:60;box-shadow:var(--shadow);pointer-events:none;
   }
@@ -705,7 +705,7 @@ function onCode(raw){
   $("#q").value="";
   const ul=$("#results"); ul.innerHTML="";
   ul.appendChild(itemCard(p || {kod, nazov:"", velkost:"", cena:0, ciarovy:digits(raw)}, !p));
-  toast("Naskenované: "+kod);
+  toast("Naskenovaný kód: "+kod);
 }
 function closeScanner(){
   scanning=false;
@@ -777,8 +777,13 @@ $("#histClear").onclick=()=>{
 };
 $("#q").addEventListener("focus",()=>{ $("#q").value=""; document.body.classList.add("kb"); });
 $("#q").addEventListener("blur",()=>document.body.classList.remove("kb"));
-$("#doSearch").onclick=()=>{ renderResults(); $("#q").blur(); };
-$("#q").addEventListener("keydown",e=>{ if(e.key==="Enter"){ renderResults(); $("#q").blur(); } });
+$("#doSearch").onclick=()=>{ 
+  const term=$("#q").value.trim(); 
+  if(term) toast("Načítaný kód: "+term); 
+  renderResults(); 
+  $("#q").blur(); 
+};
+$("#q").addEventListener("keydown",e=>{ if(e.key==="Enter"){ const term=$("#q").value.trim(); if(term) toast("Načítaný kód: "+term); renderResults(); $("#q").blur(); } });
 render();
 loadCsv();
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); }); }
