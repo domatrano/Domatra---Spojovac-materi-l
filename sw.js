@@ -1,5 +1,5 @@
 /* Domatra Skrutky – service worker */
-const CACHE = "skrutky-v1";
+const CACHE = "skrutky-v2";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -19,6 +19,16 @@ self.addEventListener("fetch", (e) => {
   let url;
   try { url = new URL(req.url); } catch (_) { return; }
 
+  // HTML appky (navigácia) – vždy najprv sieť, aby sa zmeny prejavili hneď.
+  // Offline fallback: posledná uložená verzia z cache.
+  if (req.mode === "navigate" || url.pathname.endsWith("/") || url.pathname.endsWith("/index.html")) {
+    e.respondWith(
+      fetch(req).then((r) => { const c = r.clone(); caches.open(CACHE).then((ch) => ch.put(req, c)); return r; })
+        .catch(() => caches.match(req).then((c) => c || caches.match("./index.html")))
+    );
+    return;
+  }
+
   // Katalóg (gist) – vždy skús sieť, ulož kópiu, offline vráť poslednú uloženú
   if (url.hostname.indexOf("gist.githubusercontent.com") !== -1) {
     e.respondWith(
@@ -28,7 +38,7 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Ostatné (appka, ikony, obrázky skrutiek) – najprv cache, potom sieť, a uloženie do cache
+  // Ostatné (ikony, obrázky skrutiek) – najprv cache, potom sieť, a uloženie do cache
   e.respondWith(
     caches.match(req).then((cached) =>
       cached || fetch(req).then((r) => {
