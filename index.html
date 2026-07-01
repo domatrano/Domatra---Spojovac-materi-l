@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#3fa535">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Skrutky">
+<title>Skrutky – nákupný lístok</title>
+<style>
+  :root{
+    --ink:#1b1b1b;        /* dark text */
+    --green:#3fa535;      /* Domatra green (CTA) */
+    --green-deep:#2f7d27; /* pressed/hover */
+    --red:#e2231a;        /* Domatra red (accent) */
+    --paper:#f4f4f4;      /* light page */
+    --card:#ffffff;
+    --line:#e3e3e3;
+    --good:#3fa535;
+    --bad:#e2231a;
+    --shadow:0 1px 0 rgba(0,0,0,.04), 0 6px 18px rgba(0,0,0,.08);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body.dark{
+    --ink:#ececec;
+    --green:#46b13a;
+    --green-deep:#5cc24f;
+    --red:#ef4438;
+    --paper:#121212;
+    --card:#1f1f1f;
+    --line:#353535;
+    --shadow:0 1px 0 rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.55);
+  }
+  body.dark .name-small{color:#a8a8a8}
+  body.dark .src-note{color:#888}
+  body.dark .cashier-note{background:#15301a;border-color:var(--green);color:var(--ink)}
+  html,body{margin:0}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:17px;line-height:1.4;
+    padding-bottom:28px;
+  }
+  .mono{font-family:"SF Mono",ui-monospace,"Roboto Mono",Menlo,Consolas,monospace}
+  .label-type{font-weight:800;letter-spacing:.5px;text-transform:uppercase}
+
+  header{
+    position:sticky;top:0;z-index:30;
+    background:var(--card);color:var(--ink);
+    padding:14px 16px;
+    display:flex;align-items:center;gap:10px;
+    border-top:4px solid var(--red);
+    border-bottom:3px solid var(--green);
+  }
+  header .title{font-weight:800;letter-spacing:1px;text-transform:uppercase;font-size:18px}
+  header .logo{height:54px;width:auto;max-width:62%;object-fit:contain;display:block}
+  .logo-btn{background:none;border:0;padding:0;margin:0;cursor:pointer;display:flex;align-items:center}
+
+  .modal{display:none;position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.5);
+    align-items:center;justify-content:center;padding:24px}
+  .modal.show{display:flex}
+  .modal-card{background:var(--card);border-radius:18px;padding:22px;max-width:360px;width:100%;
+    box-shadow:0 18px 50px rgba(0,0,0,.35)}
+  .modal-card p{margin:0 0 18px;font-size:16px;line-height:1.45}
+  .modal-row{display:flex;gap:10px}
+  .modal-row .btn{flex:1;font-size:16px;padding:14px}
+  .modal-cancel{background:var(--card);color:var(--ink);border-color:var(--line)}
+  .modal-ok{background:var(--green);color:#fff;border-color:var(--green)}
+  .cart-btn{background:var(--green);color:#fff;border:0;border-radius:12px;
+    padding:10px 16px;font-weight:800;font-size:16px;display:flex;align-items:center;gap:6px}
+  .head-actions{margin-left:auto;display:flex;align-items:center;gap:6px}
+  .icon-btn{background:transparent;border:1.5px solid var(--line);border-radius:12px;
+    width:42px;height:42px;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1}
+  .cart-btn .badge{background:var(--red)}
+  .continue-btn{width:100%;background:var(--card);color:var(--green-deep);border-color:var(--green);margin-bottom:14px;font-size:16px}
+  .hist-title{font-size:18px;margin:4px 0 12px}
+  .hist-card{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:12px 14px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .hist-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:8px}
+  .hist-dt{font-size:13px;color:#888}
+  .hist-total{font-size:18px;font-weight:800;color:var(--green-deep)}
+  .hist-line{display:flex;align-items:baseline;gap:10px;padding:3px 0;font-size:14px}
+  .hist-line .mono{font-weight:700}
+  .hist-line .hist-sz{color:#888;flex:1;min-width:0}
+  .hist-line .hist-ks{font-weight:700;white-space:nowrap}
+  .hist-line .hist-lt{width:64px;text-align:right;white-space:nowrap;color:#888}
+  .hist-clear{width:100%;background:var(--card);color:var(--bad);border-color:var(--line);margin-top:4px}
+  header .sub{margin-left:auto;color:#9a9a9a;font-size:13px}
+
+  .wrap{max-width:560px;margin:0 auto;padding:16px}
+
+  .panel{display:none}
+  .panel.active{display:block}
+
+  /* search / add */
+  .searchbar{display:flex;gap:8px;margin-bottom:14px}
+  .searchbar input{
+    flex:1;min-width:0;padding:14px 14px;border:2px solid var(--ink);border-radius:12px;
+    font-size:17px;background:var(--card);color:var(--ink);
+  }
+  .searchbar input:focus{outline:3px solid var(--green);outline-offset:0}
+  button{font-family:inherit;cursor:pointer}
+  .btn{
+    border:2px solid var(--line);background:var(--card);border-radius:12px;
+    padding:14px 16px;font-size:16px;font-weight:700;color:var(--ink);
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn-scan{background:var(--green);color:#fff;border-color:var(--green);white-space:nowrap;display:flex;align-items:center;gap:8px}
+  .btn-scan-wide{width:100%;justify-content:center;font-size:18px;padding:14px;margin-bottom:10px}
+  .btn-yellow{background:var(--card);color:var(--green-deep);border-color:var(--green);white-space:nowrap}
+
+  .results{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+  .card{
+    border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card);
+    box-shadow:var(--shadow);
+  }
+  .card-head{
+    display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+    padding:12px 14px;background:var(--card);border-bottom:1px solid var(--line);
+  }
+  .head-left{min-width:0}
+  .name-small{font-size:13px;color:#666;margin:0 0 4px}
+  .size-big{font-size:28px;font-weight:900;letter-spacing:.5px;line-height:1;color:var(--ink)}
+  .head-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;white-space:nowrap;flex:none}
+  .card-head .code{font-size:14px;font-weight:700}
+  .price-big{font-size:20px;font-weight:800;color:var(--green-deep)}
+  .card-mid{display:flex;align-items:center;justify-content:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+  .thumb-big{max-height:60px;max-width:70%;object-fit:contain;display:block}
+  .sumthumb{width:40px;height:40px;flex:none;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:8px}
+  .card-actions{padding:10px 14px;display:flex;gap:10px;align-items:center}
+  .card-actions .add{flex:1;background:var(--green);color:#fff;border-color:var(--green)}
+
+  .qty{display:flex;align-items:center;border:2px solid var(--line);border-radius:12px;overflow:hidden}
+  .qty button{width:46px;height:46px;border:0;background:var(--card);color:var(--ink);font-size:24px;font-weight:800;line-height:1}
+  .qty input{width:64px;height:46px;border:0;border-left:2px solid var(--line);border-right:2px solid var(--line);
+    text-align:center;font-size:20px;font-weight:800;background:var(--card);color:var(--ink);caret-color:var(--green)}
+  .qty input:focus{outline:none}
+  .qty:focus-within{border-color:var(--green);box-shadow:0 0 0 2px var(--green)}
+  .qty input::-webkit-outer-spin-button,.qty input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+
+  .empty{padding:36px 16px;text-align:center;color:#777}
+  .empty .big{font-size:46px;margin-bottom:6px}
+  .intro{padding:28px 8px}
+  .intro-bolt{font-size:52px;margin-bottom:6px}
+  .intro-title{font-size:20px;font-weight:800;color:var(--ink);margin-bottom:18px}
+  .intro-steps{max-width:340px;margin:0 auto;text-align:left;display:flex;flex-direction:column;gap:14px}
+  .intro .step{display:flex;align-items:flex-start;gap:12px;font-size:15px;color:var(--ink)}
+  .intro .step-n{flex:none;width:28px;height:28px;border-radius:50%;background:var(--green);color:#fff;
+    font-weight:800;display:flex;align-items:center;justify-content:center;font-size:15px}
+
+  /* scanner */
+  #scan{display:none;position:fixed;inset:0;z-index:50;background:#000}
+  #scan.active{display:block}
+  #scan video{width:100%;height:100%;object-fit:cover}
+  .scan-overlay{position:absolute;inset:0;pointer-events:none}
+  .scan-box{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:84%;max-width:440px;aspect-ratio:16/9;
+    border:3px solid var(--green);border-radius:14px;box-shadow:0 0 0 4000px rgba(0,0,0,.5)}
+  .scan-hint{position:absolute;left:0;right:0;top:calc(50% + 13vh);text-align:center;color:#fff;font-size:15px;
+    text-shadow:0 1px 3px rgba(0,0,0,.8);padding:0 16px}
+  .scan-close{position:absolute;top:16px;left:16px;pointer-events:auto;background:#fff;color:var(--ink);border:0;
+    border-radius:12px;padding:12px 16px;font-weight:800;font-size:16px}
+  .scan-err{pointer-events:auto;align-self:center;background:#fff;color:var(--ink);border-radius:12px;
+    padding:14px 16px;max-width:340px;text-align:center;font-size:15px}
+  .scan-foot{position:absolute;left:0;right:0;bottom:26px;display:flex;flex-direction:column;align-items:center;gap:14px;pointer-events:none}
+  .scan-foot .scan-hint{position:static;top:auto}
+  .scan-manual{pointer-events:auto;background:var(--green);color:#fff;border:0;border-radius:12px;padding:12px 18px;font-weight:800;font-size:15px}
+  .scan-msg{display:none;pointer-events:auto;position:absolute;inset:0;margin:auto;height:max-content;
+    align-self:center;max-width:340px;background:#fff;color:var(--ink);border-radius:16px;padding:20px;text-align:center;
+    box-shadow:0 12px 40px rgba(0,0,0,.4)}
+  .scan-msg.show{display:block}
+  .scan-msg p{margin:0 0 16px;font-size:15px;line-height:1.45}
+  .scan-msg .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .scan-msg button{border:2px solid var(--ink);border-radius:12px;padding:11px 16px;font-weight:800;font-size:15px;background:#fff}
+  .scan-msg button.primary{background:var(--green);color:#fff;border-color:var(--green)}
+  #scan.msg-open .scan-box,#scan.msg-open .scan-foot{display:none}
+
+  /* cart summary */
+  .sumrow{
+    display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);
+  }
+  .sumrow .chk{width:26px;height:26px;flex:none}
+  .sumrow .grow{flex:1;min-width:0}
+  .sumrow .code{font-size:24px;font-weight:800;letter-spacing:1px}
+  .sumrow .meta{font-size:13px;color:#777}
+  .sumrow .q{font-size:22px;font-weight:900;white-space:nowrap}
+  .sumrow .q small{font-size:13px;font-weight:600;color:#777}
+  .sumrow .lt{width:70px;text-align:right;font-weight:700;white-space:nowrap}
+  .sumrow.done .code,.sumrow.done .meta,.sumrow.done .q,.sumrow.done .lt{opacity:.35;text-decoration:line-through}
+  .sum-edit{margin-left:auto;border:0;background:transparent;color:var(--bad);font-weight:700;font-size:13px}
+
+  .total{
+    margin-top:16px;background:var(--green);color:#fff;border:0;border-radius:14px;padding:16px;width:100%;
+    display:flex;align-items:baseline;justify-content:space-between;cursor:pointer;font-family:inherit;text-align:left;
+  }
+  .total:active{background:var(--green-deep)}
+  .total .lbl{text-transform:uppercase;letter-spacing:1px;font-size:13px;color:rgba(255,255,255,.8)}
+  .total .amt{font-size:30px;font-weight:900}
+  .total .amt small{font-size:16px}
+
+  .cashier-note{
+    margin:14px 0 0;padding:12px 14px;background:#eaf6e8;border:1px solid var(--green);
+    border-radius:12px;font-size:14px;font-weight:600;
+  }
+
+  /* bottom bar / tabs */
+  .tabbar{
+    position:fixed;left:0;right:0;bottom:0;z-index:40;
+    background:#fff;border-top:2px solid var(--ink);
+    display:flex;max-width:560px;margin:0 auto;
+  }
+  .tabbar button{
+    flex:1;border:0;background:#fff;padding:14px 6px;font-weight:800;font-size:15px;color:#8a8a8a;
+    display:flex;flex-direction:column;align-items:center;gap:2px;
+  }
+  .tabbar button .ic{font-size:20px}
+  .tabbar button.active{color:var(--green-deep)}
+  .tabbar button.active .ic{filter:none}
+  .badge{display:inline-block;min-width:20px;padding:0 6px;height:20px;line-height:20px;border-radius:10px;
+    background:var(--bad);color:#fff;font-size:12px;font-weight:800;margin-left:6px}
+
+  .toast{
+    position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);
+    background:var(--good);color:#fff;padding:12px 18px;border-radius:24px;font-weight:700;
+    opacity:0;transition:.25s;z-index:60;box-shadow:var(--shadow);pointer-events:none;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .src-note{font-size:12px;color:#999;margin-top:8px}
+  .scroll{padding-bottom:180px}            /* miesto, nech výsledok neprekryje spodná lišta */
+  .dock{position:fixed;left:0;right:0;bottom:0;z-index:35;background:var(--paper);
+    border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(0,0,0,.10)}
+  .dock-inner{padding-top:12px;padding-bottom:14px}
+  .dock .searchbar{margin-bottom:10px}
+  .dock .btn-scan-wide{margin-bottom:0}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <button class="logo-btn" onclick="showPanel('add')" aria-label="Domov">
+    <img class="logo" src="https://i.postimg.cc/pXPHVFsy/Domatra.png" alt="Domatra" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'title',textContent:'SKRUTKY'}))">
+  </button>
+  <div class="head-actions">
+    <button class="icon-btn" id="histBtn" onclick="showPanel('history')" aria-label="História nákupov">🧾</button>
+    <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" aria-label="Svetlý alebo tmavý režim">🌙</button>
+    <button class="cart-btn" id="cartBtn" onclick="showPanel('cart')">🧺 Košík<span class="badge" id="cartCount" style="display:none">0</span></button>
+  </div>
+</header>
+
+<!-- ADD / SEARCH -->
+<section class="panel active" id="panel-add">
+  <div class="wrap scroll">
+    <ul class="results" id="results"></ul>
+    <p class="src-note" id="srcNote"></p>
+  </div>
+  <div class="dock">
+    <div class="wrap dock-inner">
+      <div class="searchbar">
+        <input id="q" inputmode="numeric" enterkeyhint="search" placeholder="Zadaj kód (napr. 06775)…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <button class="btn btn-yellow" id="doSearch">Vyhľadať</button>
+      </div>
+      <button class="btn btn-scan btn-scan-wide" id="openScan">📷 Skenovať čiarový kód</button>
+    </div>
+  </div>
+</section>
+
+<!-- CART -->
+<section class="panel wrap" id="panel-cart">
+  <button class="btn continue-btn" onclick="showPanel('add')">← Pokračovať v nákupe</button>
+  <div id="cartEmpty" class="empty">
+    <div class="big">🧺</div>
+    Košík je prázdny. Pridaj prvú položku cez <b>Skenovať</b> alebo zadaj kód.
+  </div>
+  <div id="cartFull" style="display:none">
+    <div id="sumList"></div>
+    <button class="total" id="checkoutBtn">
+      <span class="lbl">Spolu · ťukni po nablokovaní</span>
+      <span class="amt" id="grand">0,00&nbsp;<small>€</small></span>
+    </button>
+    <p class="cashier-note">👉 Pre pokladňu: prepíšte <b>kódy</b> a <b>počty kusov</b>, odškrtnite riadky. Na záver ťuknite na <b>Spolu</b> – košík sa vyprázdni.</p>
+  </div>
+</section>
+
+<!-- HISTÓRIA -->
+<section class="panel wrap" id="panel-history">
+  <button class="btn continue-btn" onclick="showPanel('add')">← Späť na nákup</button>
+  <h2 class="hist-title">História nákupov</h2>
+  <div id="histEmpty" class="empty"><div class="big">🧾</div>Zatiaľ žiadne nákupy.</div>
+  <div id="histList"></div>
+  <button class="btn hist-clear" id="histClear" style="display:none">Vymazať históriu</button>
+  <p class="src-note">História sa ukladá len v tomto zariadení (telefóne/prehliadači).</p>
+</section>
+
+<!-- SCANNER -->
+<div id="scan">
+  <video id="video" playsinline muted></video>
+  <div class="scan-overlay">
+    <button class="scan-close" id="closeScan">✕ Zavrieť</button>
+    <div class="scan-box"></div>
+    <div class="scan-foot">
+      <div class="scan-hint" id="scanHint">Namieriť na čiarový kód</div>
+      <button class="scan-manual" id="scanManual">⌨︎ Zadať kód ručne</button>
+    </div>
+    <div class="scan-msg" id="scanMsg">
+      <p id="scanMsgText"></p>
+      <div class="row">
+        <button class="primary" id="scanMsgManual">Zadať kód ručne</button>
+        <button id="scanMsgClose">Zavrieť</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Pridané do košíka</div>
+
+<!-- POTVRDENIE -->
+<div class="modal" id="confirmModal">
+  <div class="modal-card">
+    <p id="confirmText"></p>
+    <div class="modal-row">
+      <button class="btn modal-cancel" id="confirmCancel">Zrušiť</button>
+      <button class="btn modal-ok" id="confirmOk">Pridať</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   KATALÓG
+   Stĺpce CSV (oddeľovač ; alebo ,):
+     kod ; ciarovy ; nazov ; cena ; obrazok
+   - kod      = náš kód (čo prepisuje pokladňa)
+   - ciarovy  = čiarový kód EAN (voliteľné; sken ho vie aj sám)
+   - nazov    = názov (skrutka/podložka/matica…)
+   - cena     = len číslo, napr. 0.02  (€/ks dopíše appka)
+   - obrazok  = PRIAMY odkaz na obrázok (končí .png/.jpg), napr. z postimg; môže byť prázdny
+   Nastav CSV_URL nižšie na raw odkaz svojho CSV na GitHube a appka si ho ťahá sama.
+   ============================================================ */
+const CSV_URL = "https://gist.githubusercontent.com/domatrano/a5ff76e06f08c5011e86aefc75c05c20/raw/gistfile1.txt";
+
+let CATALOG = [
+  {kod:"6775",  ciarovy:"2004900067758", cena:0.02, nazov:"Skrutka zápustná M3×10", obrazok:"https://i.postimg.cc/fLZnLZJS/DIN-965A.png"},
+  {kod:"08039", ciarovy:"2004900080399", cena:0.04, nazov:"Skrutka zápustná M6×25 Zn",    obrazok:""},
+  {kod:"06749", ciarovy:"2004900067499", cena:0.07, nazov:"Skrutka imbus M5×30 (DIN912)", obrazok:""},
+  {kod:"06798", ciarovy:"2004900067987", cena:0.09, nazov:"Skrutka imbus M5×40 (DIN912)", obrazok:""},
+  {kod:"06799", ciarovy:"2004900067994", cena:0.13, nazov:"Skrutka imbus M5×50 (DIN912)", obrazok:""},
+  {kod:"06857", ciarovy:"2004900068571", cena:0.15, nazov:"Skrutka imbus M5×60 (DIN912)", obrazok:""},
+  {kod:"06858", ciarovy:"2004900068588", cena:0.06, nazov:"Skrutka imbus M6×30 (DIN912)", obrazok:""},
+  {kod:"07858", ciarovy:"2004900078587", cena:0.06, nazov:"Skrutka imbus M6×40 (DIN912)", obrazok:""},
+  {kod:"06859", ciarovy:"2004900068595", cena:0.10, nazov:"Skrutka imbus M6×50 (DIN912)", obrazok:""},
+  {kod:"06096", ciarovy:"2004900060964", cena:0.12, nazov:"Skrutka imbus M6×60 (DIN912)", obrazok:""},
+];
+
+/* odvodí rozmer ako M6×25 z názvu, ak nie je zadaný zvlášť */
+function sizeOf(p){
+  if(p.velkost) return p.velkost;
+  const m=(p.nazov||"").match(/M\s*\d+\s*[x×]\s*\d+/i);
+  return m ? m[0].replace(/\s+/g,"").replace("x","×") : (p.kod||"");
+}
+/* názov bez rozmeru, s čiarkou pred povrchovou úpravou (napr. "Skrutka zapustená, zinok") */
+const POVRCH = ["zinok","nerez","pozink","cierne","čierne","cierna","čierna","mosadz","med","meď","bronz","chrom","chróm"];
+function nameNoSize(p){
+  let s=(p.nazov||"").replace(/M\s*\d+\s*[x×]\s*\d+/i," ").replace(/\s{2,}/g," ").trim();
+  const w=s.split(" ");
+  if(w.length>=2 && POVRCH.includes(w[w.length-1].toLowerCase())){
+    s = w.slice(0,-1).join(" ") + ", " + w[w.length-1];
+  }
+  return s || (p.nazov||"");
+}
+/* len číslice z reťazca */
+function digits(s){ return String(s||"").replace(/\D/g,""); }
+/* náš kód je vždy 5-miestny (00001–99999). Excel z "00001" spraví "1" – doplníme nuly späť. */
+function pad5(s){
+  const t=String(s||"").trim();
+  return /^\d{1,5}$/.test(t) ? t.padStart(5,"0") : t;
+}
+/* na porovnanie kódov ignoruj vedúce nuly */
+function normCode(s){ return String(s||"").replace(/^0+/,"") || "0"; }
+
+/* ---- čiarový kód → náš kód ----
+   1) hlavné: priame priradenie podľa stĺpca "ciarovy" v CSV
+   2) záloha: ak EAN má tvar 2004900 + kód + kontrolná, vytiahni 5 číslic */
+const EAN_PREFIX = "2004900";
+function codeFromBarcode(raw){
+  const d = digits(raw);
+  if(d.length===13 && d.startsWith(EAN_PREFIX)) return d.slice(7,12);
+  if(d.length>=6) return d.slice(-6,-1);
+  return null;
+}
+/* nájdi položku podľa naskenovaného čiarového kódu */
+function findByBarcode(raw){
+  const d = digits(raw);
+  let p = CATALOG.find(x => x.ciarovy && digits(x.ciarovy)===d);   // presné priradenie z CSV
+  if(p) return p;
+  const kod = codeFromBarcode(raw);                                 // záloha
+  return kod ? findByCode(kod) : null;
+}
+
+/* ---------- stav ---------- */
+const cart = []; // {kod, nazov, cena, obrazok, ks, done}
+const $ = s => document.querySelector(s);
+const eur = n => (n).toFixed(2).replace(".",",");
+
+/* ---------- katalóg z CSV (voliteľné) ---------- */
+function splitCsvLine(line, delim){
+  // jednoduchý parser s podporou úvodzoviek
+  const out=[]; let cur=""; let q=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(q){ if(ch==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=ch; }
+    else { if(ch==='"') q=true; else if(ch===delim){ out.push(cur); cur=""; } else cur+=ch; }
+  }
+  out.push(cur); return out;
+}
+async function loadCsv(){
+  if(!CSV_URL) { $("#srcNote").textContent="Tip: nastav CSV_URL v kóde a katalóg sa bude ťahať z webu."; return; }
+  try{
+    const res = await fetch(CSV_URL + (CSV_URL.includes("?")?"&":"?") + "v=" + Date.now(), {cache:"no-store"});
+    const text = await res.text();
+    const rows = text.replace(/^\uFEFF/,"").trim().split(/\r?\n/);
+    const delim = (rows[0].split(";").length > rows[0].split(",").length) ? ";" : ",";
+    const head = splitCsvLine(rows.shift(), delim).map(h=>h.trim().toLowerCase());
+    const iK=head.indexOf("kod"), iB=head.indexOf("ciarovy"), iN=head.indexOf("nazov"),
+          iC=head.indexOf("cena"), iO=head.indexOf("obrazok"), iV=head.indexOf("velkost");
+    const out=[];
+    for(const r of rows){
+      if(!r.trim()) continue;
+      const c=splitCsvLine(r, delim);
+      const kod=pad5((c[iK]||"").trim());
+      if(!kod) continue;
+      out.push({
+        kod,
+        ciarovy:(iB>=0?(c[iB]||"").trim():""),
+        nazov:(c[iN]||"").trim()||("Položka "+kod),
+        cena: iC>=0 ? (parseFloat((c[iC]||"0").replace(",", "."))||0) : 0,
+        obrazok:(iO>=0?(c[iO]||"").trim():""),
+        velkost:(iV>=0?(c[iV]||"").trim():"")
+      });
+    }
+    if(out.length){ CATALOG=out; $("#srcNote").textContent="Načítaných položiek: "+out.length; }
+  }catch(e){
+    $("#srcNote").textContent="CSV sa nepodarilo načítať – používa sa vzorový katalóg.";
+  }
+  render();
+}
+
+/* ---------- vyhľadávanie ---------- */
+function findByCode(kod){
+  const n=normCode(kod);
+  return CATALOG.find(p=>normCode(p.kod)===n) || CATALOG.find(p=>p.ciarovy && codeFromBarcode(p.ciarovy)===kod);
+}
+function search(term){
+  const t=(term||"").trim().toLowerCase().replace(/\s+/g,"");
+  if(!t) return CATALOG.slice(0,40);
+  return CATALOG.filter(p=>{
+    const hay=(p.kod+" "+p.nazov+" "+(p.velkost||"")).toLowerCase().replace(/\s+/g,"");
+    return hay.includes(t);
+  }).slice(0,40);
+}
+
+/* ---------- render zoznamu položiek ---------- */
+function itemCard(p, unknown=false){
+  const li=document.createElement("li");
+  li.className="card";
+  li.innerHTML=`
+    <div class="card-head">
+      <div class="head-left">
+        <div class="name-small">${unknown? "Neznáma položka – pridaj kód do tabuľky" : escapeHtml(nameNoSize(p))}</div>
+        <div class="size-big label-type">${escapeHtml(sizeOf(p))}</div>
+      </div>
+      <div class="head-right">
+        <span class="code mono">kód ${p.kod}</span>
+        <span class="price-big">${unknown? "—" : eur(p.cena)+" €/ks"}</span>
+      </div>
+    </div>
+    ${p.obrazok? `<div class="card-mid"><img class="thumb-big" src="${escapeHtml(p.obrazok)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.style.display='none'"></div>`:""}
+    <div class="card-actions">
+      <div class="qty">
+        <button aria-label="menej">−</button>
+        <input type="number" inputmode="numeric" min="1" value="1">
+        <button aria-label="viac">＋</button>
+      </div>
+      <button class="btn add">Pridať</button>
+    </div>`;
+  const input=li.querySelector("input");
+  input.addEventListener("focus",()=>{ setTimeout(()=>input.select(),0); });
+  input.addEventListener("blur",()=>{ if(!input.value.trim()) input.value=1; });
+  li.querySelectorAll(".qty button")[0].onclick=()=>{ input.value=Math.max(1,(parseInt(input.value)||1)-1); };
+  li.querySelectorAll(".qty button")[1].onclick=()=>{ input.value=(parseInt(input.value)||1)+1; };
+  li.querySelector(".add").onclick=()=>{
+    addToCart(p, Math.max(1,parseInt(input.value)||1));
+    input.value=1;
+  };
+  return li;
+}
+function escapeHtml(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+function renderResults(){
+  const ul=$("#results"); ul.innerHTML="";
+  const term=$("#q").value.trim();
+  if(!term){
+    const li=document.createElement("li"); li.className="empty intro";
+    li.innerHTML=`
+      <div class="intro-bolt">🔩</div>
+      <div class="intro-title">Spočítaj si skrutky sám</div>
+      <div class="intro-steps">
+        <div class="step"><span class="step-n">1</span><span>Dole <b>naskenuj</b> čiarový kód krabičky, alebo <b>zadaj kód</b> a stlač Vyhľadať.</span></div>
+        <div class="step"><span class="step-n">2</span><span>Zadaj <b>počet kusov</b> a daj <b>Pridať</b>.</span></div>
+        <div class="step"><span class="step-n">3</span><span>Pri pokladni ukáž <b>🧺 Košík</b>.</span></div>
+      </div>`;
+    ul.appendChild(li); return;
+  }
+  const list=search(term);
+  if(!list.length){
+    const li=document.createElement("li"); li.className="empty";
+    li.innerHTML="Nič sa nenašlo. Skús iný rozmer alebo naskenuj kód.";
+    ul.appendChild(li); return;
+  }
+  list.forEach(p=>ul.appendChild(itemCard(p)));
+}
+
+/* ---------- košík ---------- */
+function addToCart(p, ks){
+  const ex=cart.find(c=>c.kod===p.kod);
+  if(ex){
+    askConfirm(
+      `Túto skrutku už máš v košíku (<b>${escapeHtml(sizeOf(p))}, ${ex.ks} ks</b>).<br>Chceš pridať ešte <b>${ks} ks</b>?`,
+      ()=>{ ex.ks+=ks; render(); toast(`Pridané: ${sizeOf(p)} ×${ks}`); }
+    );
+    return;
+  }
+  cart.push({kod:p.kod,nazov:p.nazov,velkost:sizeOf(p),cena:p.cena||0,obrazok:p.obrazok||"",ks,done:false});
+  render(); toast(`Pridané: ${sizeOf(p)} ×${ks}`);
+}
+
+/* potvrdzovacie okno */
+let confirmCb=null;
+function askConfirm(html, onOk, okLabel){
+  $("#confirmText").innerHTML=html;
+  $("#confirmOk").textContent = okLabel || "Pridať";
+  confirmCb=onOk;
+  $("#confirmModal").classList.add("show");
+}
+function removeFromCart(kod){ const i=cart.findIndex(c=>c.kod===kod); if(i>=0)cart.splice(i,1); render(); }
+
+function renderCart(){
+  const n=cart.length;
+  const badge=$("#cartCount");
+  if(cart.length){ badge.style.display="inline-block"; badge.textContent=n; } else { badge.style.display="none"; }
+
+  if(!cart.length){ $("#cartEmpty").style.display="block"; $("#cartFull").style.display="none"; return; }
+  $("#cartEmpty").style.display="none"; $("#cartFull").style.display="block";
+
+  const box=$("#sumList"); box.innerHTML="";
+  let grand=0;
+  cart.forEach(c=>{
+    const lt=c.cena*c.ks; grand+=lt;
+    const row=document.createElement("div");
+    row.className="sumrow"+(c.done?" done":"");
+    row.innerHTML=`
+      <input class="chk" type="checkbox" ${c.done?"checked":""} aria-label="zadané do pokladne">
+      ${c.obrazok? `<img class="sumthumb" src="${escapeHtml(c.obrazok)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:""}
+      <div class="grow">
+        <div class="code mono">${c.kod}</div>
+        <div class="meta">${escapeHtml(c.velkost||"")} ${c.velkost? "· ":""}${c.cena? eur(c.cena)+" €/ks":""}</div>
+      </div>
+      <div class="q">${c.ks}<small> ks</small></div>
+      <div class="lt">${eur(lt)}€</div>
+      <button class="sum-edit" aria-label="odobrať">✕</button>`;
+    row.querySelector(".chk").onchange=e=>{ c.done=e.target.checked; row.classList.toggle("done",c.done); };
+    row.querySelector(".sum-edit").onclick=()=>removeFromCart(c.kod);
+    box.appendChild(row);
+  });
+  $("#grand").innerHTML=eur(grand)+"&nbsp;<small>€</small>";
+}
+
+function render(){ renderResults(); renderCart(); }
+
+/* ---------- panely / taby ---------- */
+function showPanel(which){
+  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+  $("#panel-"+which).classList.add("active");
+  if(which==="history") renderHistory();
+  document.body.classList.remove("kb");
+  window.scrollTo(0,0);
+}
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),1400); }
+
+/* ---------- skener ---------- */
+let stream=null, detector=null, scanning=false, zxingReader=null;
+let roiCanvas=null, roiCtx=null;   // výrez (ROI) – dekóduje sa len vnútro rámika
+let scanReadyAt=0, seenVal=null, seenCount=0;   // grace period + potvrdenie opakovaním
+function handleScan(raw){
+  if(!scanning || Date.now()<scanReadyAt) return;      // chvíľa na zamierenie
+  const d=digits(raw); if(!d) return;
+  if(d===seenVal){ seenCount++; } else { seenVal=d; seenCount=1; $("#scanHint").textContent="Podrž ešte chvíľu…"; }
+  if(seenCount>=2){ onCode(raw); }                      // prijmi až po 2 zhodných čítaniach
+}
+
+function showScanMessage(text){
+  $("#scan").classList.add("active","msg-open");
+  $("#scanMsgText").innerHTML=text;
+  $("#scanMsg").classList.add("show");
+}
+function resetScanUI(){
+  $("#scan").classList.remove("msg-open");
+  $("#scanMsg").classList.remove("show");
+}
+function goManual(){
+  closeScanner();
+  showPanel("add");
+  const q=$("#q"); q.value=""; renderResults(); q.focus();
+}
+
+async function openScanner(){
+  resetScanUI();
+  $("#scan").classList.add("active");
+  $("#scanHint").textContent="Spúšťam kameru…";
+
+  // 1) musí byť HTTPS (alebo localhost) – inak prehliadač kameru vôbec nepustí
+  if(!window.isSecureContext){
+    showScanMessage("Kamera funguje len na <b>HTTPS</b> stránke (GitHub Pages) alebo v prehliadači telefónu.<br><br>V náhľade a pri otvorení súboru z disku ju prehliadač zablokuje. Zatiaľ použi ručné zadanie kódu.");
+    return;
+  }
+  // 2) niektoré sandboxy nemajú mediaDevices vôbec
+  if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
+    showScanMessage("Tento prehliadač/náhľad neumožňuje prístup ku kamere.<br><br>Otvor stránku na telefóne (HTTPS) alebo zadaj kód ručne.");
+    return;
+  }
+
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}}});
+    const v=$("#video"); v.srcObject=stream; await v.play();
+    $("#scanHint").textContent="Namieri na čiarový kód a chvíľu podrž";
+    scanning=true;
+    scanReadyAt=Date.now()+400; seenVal=null; seenCount=0;   // 0,4 s na zamierenie
+    if("BarcodeDetector" in window){
+      try{
+        detector=new BarcodeDetector({formats:["ean_13","ean_8","code_128","upc_a","upc_e"]});
+        scanTick();
+      }catch(e){ await loadZxing(); }
+    } else {
+      await loadZxing();
+    }
+  }catch(e){
+    const denied = e && (e.name==="NotAllowedError" || e.name==="SecurityError");
+    showScanMessage(denied
+      ? "Prístup ku kamere bol odmietnutý.<br><br>Povoľ kameru pre túto stránku v nastaveniach prehliadača, alebo zadaj kód ručne."
+      : "Kameru sa nepodarilo spustiť.<br><br>Skús zavrieť iné appky používajúce kameru, alebo zadaj kód ručne.");
+  }
+}
+async function scanTick(){
+  if(!scanning) return;
+  const v=$("#video");
+  try{
+    if(v && v.videoWidth){
+      if(!roiCanvas){ roiCanvas=document.createElement("canvas"); roiCtx=roiCanvas.getContext("2d",{willReadFrequently:true}); }
+      const vw=v.videoWidth, vh=v.videoHeight;
+      // stredový pruh ~ rovnaký ako zelený rámik (84 % šírky, ~30 % výšky)
+      const rw=Math.round(vw*0.82), rh=Math.round(vh*0.26);
+      const rx=Math.round((vw-rw)/2), ry=Math.round((vh-rh)/2);
+      if(roiCanvas.width!==rw){ roiCanvas.width=rw; }
+      if(roiCanvas.height!==rh){ roiCanvas.height=rh; }
+      roiCtx.drawImage(v, rx,ry,rw,rh, 0,0, rw,rh);
+      const codes=await detector.detect(roiCanvas);
+      if(codes && codes.length){ handleScan(codes[0].rawValue); }
+    }
+  }catch(e){}
+  if(scanning) requestAnimationFrame(scanTick);
+}
+function loadZxing(){
+  return new Promise((resolve)=>{
+    if(zxingReader){ startZxing(); return resolve(); }
+    const s=document.createElement("script");
+    s.src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js";
+    s.onload=()=>{ startZxing(); resolve(); };
+    s.onerror=()=>{ $("#scanHint").innerHTML=`<div class="scan-err">Skener sa nenačítal (slabý internet).<br>Zadaj kód ručne cez hľadanie.</div>`; resolve(); };
+    document.head.appendChild(s);
+  });
+}
+function startZxing(){
+  try{
+    zxingReader=new ZXing.BrowserMultiFormatReader();
+    zxingReader.decodeFromVideoElement($("#video"), (res)=>{ if(res && scanning) handleScan(res.getText()); });
+  }catch(e){
+    $("#scanHint").innerHTML=`<div class="scan-err">Skener nedostupný. Zadaj kód ručne.</div>`;
+  }
+}
+function onCode(raw){
+  if(!scanning) return;
+  const p=findByBarcode(raw);
+  const kod=pad5(p ? p.kod : (codeFromBarcode(raw)||""));
+  if(!p && !kod){ $("#scanHint").textContent="Kód neprečítaný, skús znova"; return; }
+  closeScanner();
+  showPanel("add");
+  $("#q").value="";
+  const ul=$("#results"); ul.innerHTML="";
+  ul.appendChild(itemCard(p || {kod, nazov:"", velkost:"", cena:0, ciarovy:digits(raw)}, !p));
+  toast("Naskenované: "+kod);
+}
+function closeScanner(){
+  scanning=false;
+  try{ if(zxingReader){ zxingReader.reset(); } }catch(e){}
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  $("#scan").classList.remove("active");
+  resetScanUI();
+}
+
+/* ---------- história nákupov ---------- */
+const HKEY="skrutky_history_v1";
+function loadHistory(){ try{ return JSON.parse(localStorage.getItem(HKEY)||"[]"); }catch(e){ return []; } }
+function saveHistory(){ try{ localStorage.setItem(HKEY, JSON.stringify(history.slice(-300))); }catch(e){} }
+let history=loadHistory();
+function fmtDateTime(ts){
+  const d=new Date(ts);
+  return d.toLocaleDateString("sk-SK")+" "+d.toLocaleTimeString("sk-SK",{hour:"2-digit",minute:"2-digit"});
+}
+function renderHistory(){
+  const box=$("#histList"); box.innerHTML="";
+  if(!history.length){ $("#histEmpty").style.display="block"; $("#histClear").style.display="none"; return; }
+  $("#histEmpty").style.display="none"; $("#histClear").style.display="block";
+  history.slice().reverse().forEach(rec=>{
+    const el=document.createElement("div"); el.className="hist-card";
+    const lines=rec.items.map(it=>
+      `<div class="hist-line"><span class="mono">${escapeHtml(it.kod)}</span><span class="hist-sz">${escapeHtml(it.velkost||"")}</span><span class="hist-ks">${it.ks} ks</span><span class="hist-lt">${eur((it.cena||0)*it.ks)}€</span></div>`
+    ).join("");
+    el.innerHTML=`<div class="hist-head"><span class="hist-dt">${fmtDateTime(rec.ts)}</span><span class="hist-total">${eur(rec.total)} €</span></div>${lines}`;
+    box.appendChild(el);
+  });
+}
+
+/* ---------- svetlý / tmavý režim ---------- */
+const TKEY="skrutky_theme";
+function toggleTheme(){
+  const dark=document.body.classList.toggle("dark");
+  $("#themeBtn").textContent = dark ? "☀️" : "🌙";
+  try{ localStorage.setItem(TKEY, dark ? "dark" : "light"); }catch(e){}
+}
+(function initTheme(){
+  let saved=null; try{ saved=localStorage.getItem(TKEY); }catch(e){}
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const dark = saved ? (saved==="dark") : prefersDark;
+  document.body.classList.toggle("dark", dark);
+  $("#themeBtn").textContent = dark ? "☀️" : "🌙";
+})();
+
+/* ---------- init ---------- */
+$("#openScan").onclick=openScanner;
+$("#closeScan").onclick=closeScanner;
+$("#scanManual").onclick=goManual;
+$("#scanMsgManual").onclick=goManual;
+$("#scanMsgClose").onclick=closeScanner;
+$("#confirmOk").onclick=()=>{ $("#confirmModal").classList.remove("show"); const cb=confirmCb; confirmCb=null; if(cb) cb(); };
+$("#confirmCancel").onclick=()=>{ $("#confirmModal").classList.remove("show"); confirmCb=null; };
+$("#checkoutBtn").onclick=()=>{
+  if(!cart.length) return;
+  askConfirm("Hotovo? Týmto sa <b>vyprázdni košík</b> a nákup sa uloží do histórie.",
+    ()=>{
+      const total=cart.reduce((a,c)=>a+c.cena*c.ks,0);
+      history.push({ts:Date.now(), total, items:cart.map(c=>({kod:c.kod,velkost:c.velkost,nazov:c.nazov,ks:c.ks,cena:c.cena}))});
+      saveHistory();
+      cart.length=0; render(); showPanel("add"); toast("Nákup uložený do histórie");
+    }, "Hotovo");
+};
+$("#histClear").onclick=()=>{
+  askConfirm("Vymazať celú históriu nákupov? Tento krok sa nedá vrátiť.",
+    ()=>{ history.length=0; saveHistory(); renderHistory(); }, "Vymazať");
+};
+$("#q").addEventListener("focus",()=>{ $("#q").value=""; document.body.classList.add("kb"); });
+$("#q").addEventListener("blur",()=>document.body.classList.remove("kb"));
+$("#doSearch").onclick=()=>{ renderResults(); $("#q").blur(); };
+$("#q").addEventListener("keydown",e=>{ if(e.key==="Enter"){ renderResults(); $("#q").blur(); } });
+render();
+loadCsv();
+if("serviceWorker" in navigator){ window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); }); }
+</script>
+</body>
+</html>
