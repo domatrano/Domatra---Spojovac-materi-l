@@ -39,8 +39,9 @@
   body.dark .src-note{color:#888}
   body.dark .cashier-note{background:#15301a;border-color:var(--green);color:var(--ink)}
   html,body{margin:0}
-  html{overscroll-behavior-y:none}
+  html{overscroll-behavior-y:none;height:100%}
   body{
+    min-height:100dvh;
     background:var(--paper);
     color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -489,7 +490,7 @@ async function loadCsv(){
         velkost:(iV>=0?(c[iV]||"").trim():"")
       });
     }
-    if(out.length){ CATALOG=out; $("#srcNote").textContent="Načítaných položiek: "+out.length; }
+    if(out.length){ CATALOG=out; }
   }catch(e){
     $("#srcNote").textContent="CSV sa nepodarilo načítať – používa sa vzorový katalóg.";
   }
