@@ -231,6 +231,12 @@
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
   .src-note{font-size:12px;color:#999;margin-top:8px}
+  .install-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:var(--card);border:1.5px solid var(--green);border-radius:14px;
+    padding:12px 14px;margin-bottom:14px;box-shadow:var(--shadow)}
+  .install-bar span{font-size:14px;color:var(--ink);line-height:1.3}
+  .install-btn{flex:none;background:var(--green);color:#fff;border:0;border-radius:10px;
+    padding:10px 14px;font-weight:800;font-size:14px;white-space:nowrap}
   .scroll{padding-bottom:180px}            /* miesto, nech výsledok neprekryje spodná lišta */
   .dock{position:fixed;left:0;right:0;bottom:0;z-index:35;background:var(--paper);
     border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(0,0,0,.10)}
@@ -256,6 +262,10 @@
 <!-- ADD / SEARCH -->
 <section class="panel active" id="panel-add">
   <div class="wrap scroll">
+    <div class="install-bar" id="installBar" style="display:none">
+      <span>📲 Appku si môžeš pridať na plochu telefónu</span>
+      <button class="btn install-btn" id="installBtn">Nainštalovať</button>
+    </div>
     <ul class="results" id="results"></ul>
     <p class="src-note" id="srcNote"></p>
   </div>
@@ -385,20 +395,27 @@ function normCode(s){ return String(s||"").replace(/^0+/,"") || "0"; }
 
 /* ---- čiarový kód → náš kód ----
    1) hlavné: priame priradenie podľa stĺpca "ciarovy" v CSV
-   2) záloha: ak EAN má tvar 2004900 + kód + kontrolná, vytiahni 5 číslic */
+   2) záloha: LEN ak ide o náš vlastný kód v tvare 2004900 + 5-miestny kód + platná kontrolná číslica.
+      Cudzie čiarové kódy (iný výrobca) touto zálohou nikdy neprejdú, aby sa neplietli s náhodne
+      podobným interným kódom iného tovaru. */
 const EAN_PREFIX = "2004900";
+function ean13Valid(d){
+  if(d.length!==13) return false;
+  let sum=0;
+  for(let i=0;i<12;i++){ const n=+d[i]; sum += (i%2===0)? n : n*3; }
+  return ((10-(sum%10))%10) === +d[12];
+}
 function codeFromBarcode(raw){
   const d = digits(raw);
-  if(d.length===13 && d.startsWith(EAN_PREFIX)) return d.slice(7,12);
-  if(d.length>=6) return d.slice(-6,-1);
+  if(d.length===13 && d.startsWith(EAN_PREFIX) && ean13Valid(d)) return d.slice(7,12);
   return null;
 }
 /* nájdi položku podľa naskenovaného čiarového kódu */
 function findByBarcode(raw){
   const d = digits(raw);
-  let p = CATALOG.find(x => x.ciarovy && digits(x.ciarovy)===d);   // presné priradenie z CSV
+  let p = CATALOG.find(x => x.ciarovy && digits(x.ciarovy)===d);   // presné priradenie z CSV (rozhoduje vždy prvé)
   if(p) return p;
-  const kod = codeFromBarcode(raw);                                 // záloha
+  const kod = codeFromBarcode(raw);                                 // záloha len pre naše 2004900 kódy
   return kod ? findByCode(kod) : null;
 }
 
@@ -787,6 +804,28 @@ $("#q").addEventListener("keydown",e=>{ if(e.key==="Enter"){ const term=$("#q").
 render();
 loadCsv();
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); }); }
+
+/* ---------- inštalácia appky (tlačidlo priamo v appke) ---------- */
+let deferredInstall=null;
+function isStandalone(){
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone===true;
+}
+window.addEventListener("beforeinstallprompt",(e)=>{
+  e.preventDefault();
+  deferredInstall=e;
+  if(!isStandalone()) $("#installBar").style.display="flex";
+});
+window.addEventListener("appinstalled",()=>{
+  deferredInstall=null;
+  $("#installBar").style.display="none";
+});
+$("#installBtn").onclick=async()=>{
+  if(!deferredInstall) return;
+  $("#installBar").style.display="none";
+  deferredInstall.prompt();
+  await deferredInstall.userChoice;
+  deferredInstall=null;
+};
 </script>
 </body>
 </html>
