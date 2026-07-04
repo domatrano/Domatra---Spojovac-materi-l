@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="theme-color" content="#3fa535">
+<meta name="referrer" content="no-referrer">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -49,6 +50,9 @@
     padding-bottom:28px;
     overscroll-behavior-y:none;
   }
+  .bg-layer{position:fixed;inset:0;z-index:-1;
+    background:url('https://i.postimg.cc/htQbHzZB/light.png') center/cover no-repeat}
+  body.dark .bg-layer{background-image:url('https://i.postimg.cc/br69jQf6/dark.png')}
   .mono{font-family:"SF Mono",ui-monospace,"Roboto Mono",Menlo,Consolas,monospace}
   .label-type{font-weight:800;letter-spacing:.5px;text-transform:uppercase}
 
@@ -175,10 +179,10 @@
   #scan.active{display:block}
   #scan video{width:100%;height:100%;object-fit:cover}
   .scan-overlay{position:absolute;inset:0;pointer-events:none}
-  .scan-box{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  .scan-box{position:absolute;top:38%;left:50%;transform:translate(-50%,-50%);
     width:84%;max-width:440px;aspect-ratio:16/9;
-    border:3px solid var(--green);border-radius:14px;box-shadow:0 0 0 4000px rgba(0,0,0,.5)}
-  .scan-hint{position:absolute;left:0;right:0;top:calc(50% + 13vh);text-align:center;color:#fff;font-size:15px;
+    border:3px solid var(--green);border-radius:14px;box-shadow:0 0 0 4000px rgba(0,0,0,.62)}
+  .scan-hint{position:absolute;left:0;right:0;top:calc(38% + 13vh);text-align:center;color:#fff;font-size:15px;
     text-shadow:0 1px 3px rgba(0,0,0,.8);padding:0 16px}
   .scan-close{position:absolute;top:16px;left:16px;pointer-events:auto;background:#fff;color:var(--ink);border:0;
     border-radius:12px;padding:12px 16px;font-weight:800;font-size:16px}
@@ -265,10 +269,11 @@
 </style>
 </head>
 <body>
+<div class="bg-layer"></div>
 
 <header>
   <button class="logo-btn" onclick="showPanel('add')" aria-label="Domov">
-    <img class="logo" src="https://i.postimg.cc/q7Wrg0bH/Domatra.png" alt="Domatra" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'title',textContent:'SKRUTKY'}))">
+    <img class="logo" src="https://i.postimg.cc/pXPHVFsy/Domatra.png" alt="Domatra" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'title',textContent:'SKRUTKY'}))">
   </button>
   <div class="head-actions">
     <button class="icon-btn" id="histBtn" onclick="showPanel('history')" aria-label="História nákupov">🧾</button>
@@ -281,7 +286,7 @@
 <section class="panel active" id="panel-add">
   <div class="wrap scroll">
     <div class="install-bar" id="installBar" style="display:none">
-      <span>📲 Appku si môžete nainštalovať na plochu telefónu, nech ju máte vždy poruke.</span>
+      <span>📲 Appku si môžete pridať na plochu telefónu</span>
       <button class="btn install-btn" id="installBtn">Nainštalovať</button>
     </div>
     <ul class="results" id="results"></ul>
@@ -571,7 +576,7 @@ function renderResults(){
           </div>
         </div>
         <div class="step"><span class="step-n">2</span><span><b>Zadajte počet kusov</b> a pridajte do košíka.</span></div>
-        <div class="step"><span class="step-n">3</span><span>Pri pokladni už len ukážte <b>Košík</b> a tovar v ňom vám nablokujú.</span></div>
+        <div class="step"><span class="step-n">3</span><span>Pri pokladni už len ukážte <b>Košík</b> a nablokujú vám ho.</span></div>
       </div>`;
     ul.appendChild(li); return;
   }
@@ -724,9 +729,9 @@ async function scanTick(){
     if(v && v.videoWidth){
       if(!roiCanvas){ roiCanvas=document.createElement("canvas"); roiCtx=roiCanvas.getContext("2d",{willReadFrequently:true}); }
       const vw=v.videoWidth, vh=v.videoHeight;
-      // stredový pruh ~ rovnaký ako zelený rámik (84 % šírky, ~30 % výšky)
+      // stredový pruh vyššie ~vo výške objektívu, zhodne so zeleným rámikom (84 % šírky, ~26 % výšky, stred pri 38 % výšky)
       const rw=Math.round(vw*0.82), rh=Math.round(vh*0.26);
-      const rx=Math.round((vw-rw)/2), ry=Math.round((vh-rh)/2);
+      const rx=Math.round((vw-rw)/2), ry=Math.round(vh*0.38-rh/2);
       if(roiCanvas.width!==rw){ roiCanvas.width=rw; }
       if(roiCanvas.height!==rh){ roiCanvas.height=rh; }
       roiCtx.drawImage(v, rx,ry,rw,rh, 0,0, rw,rh);
