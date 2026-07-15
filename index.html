@@ -273,7 +273,7 @@
 
 <header>
   <button class="logo-btn" onclick="showPanel('add')" aria-label="Domov">
-    <img class="logo" src="https://i.postimg.cc/q7Wrg0bH/Domatra.png" alt="Domatra" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'title',textContent:'SKRUTKY'}))">
+    <img class="logo" src="https://i.postimg.cc/pXPHVFsy/Domatra.png" alt="Domatra" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'title',textContent:'SKRUTKY'}))">
   </button>
   <div class="head-actions">
     <button class="icon-btn" id="histBtn" onclick="showPanel('history')" aria-label="História nákupov">🧾</button>
@@ -316,7 +316,7 @@
       <span class="lbl">Spolu · ťuknite po nablokovaní</span>
       <span class="amt" id="grand">0,00&nbsp;<small>€</small></span>
     </button>
-    <p class="cashier-note">👉 Pre pokladňu: prepíšte <b>kódy</b> a <b>počty kusov</b>, odškrtnite riadky. Na záver ťuknite na <b>Spolu</b> – košík sa vyprázdni.</p>
+    <p class="cashier-note">👉 Pre pokladňu: prepíšte <b>kódy</b> a <b>počty kusov / váhu</b>, odškrtnite riadky. Na záver ťuknite na <b>Spolu</b> – košík sa vyprázdni.</p>
   </div>
 </section>
 
@@ -458,6 +458,21 @@ function loadCart(){
 }
 const $ = s => document.querySelector(s);
 const eur = n => (n).toFixed(2).replace(".",",");
+/* formátovanie množstva: kusy vždy celé číslo, kilogramy s desatinami (orezané nuly navyše) */
+function fmtQty(ks, unit){
+  if(unit==="kg"){
+    let s=(+ks).toFixed(3).replace(/0+$/,"").replace(/\.$/,"");
+    if(s.indexOf(".")===-1) s=s; 
+    return s.replace(".",",")+" kg";
+  }
+  return Math.round(ks)+" ks";
+}
+function fmtQtyHtml(ks, unit){
+  const s=fmtQty(ks,unit);
+  const sp=s.lastIndexOf(" ");
+  return s.slice(0,sp)+"<small> "+s.slice(sp+1)+"</small>";
+}
+function unitLabel(unit){ return unit==="kg" ? "€/kg" : "€/ks"; }
 
 /* ---------- katalóg z CSV (voliteľné) ---------- */
 function splitCsvLine(line, delim){
@@ -479,20 +494,22 @@ async function loadCsv(){
     const delim = (rows[0].split(";").length > rows[0].split(",").length) ? ";" : ",";
     const head = splitCsvLine(rows.shift(), delim).map(h=>h.trim().toLowerCase());
     const iK=head.indexOf("kod"), iB=head.indexOf("ciarovy"), iN=head.indexOf("nazov"),
-          iC=head.indexOf("cena"), iO=head.indexOf("obrazok"), iV=head.indexOf("velkost");
+          iC=head.indexOf("cena"), iO=head.indexOf("obrazok"), iV=head.indexOf("velkost"), iJ=head.indexOf("jednotka");
     const out=[];
     for(const r of rows){
       if(!r.trim()) continue;
       const c=splitCsvLine(r, delim);
       const kod=pad5((c[iK]||"").trim());
       if(!kod) continue;
+      const jednotka = (iJ>=0 ? (c[iJ]||"").trim().toLowerCase() : "") === "kg" ? "kg" : "ks";
       out.push({
         kod,
         ciarovy:(iB>=0?(c[iB]||"").trim():""),
         nazov:(c[iN]||"").trim()||("Položka "+kod),
         cena: iC>=0 ? (parseFloat((c[iC]||"0").replace(",", "."))||0) : 0,
         obrazok:(iO>=0?(c[iO]||"").trim():""),
-        velkost:(iV>=0?(c[iV]||"").trim():"")
+        velkost:(iV>=0?(c[iV]||"").trim():""),
+        jednotka
       });
     }
     if(out.length){ CATALOG=out; }
@@ -518,6 +535,7 @@ function search(term){
 
 /* ---------- render zoznamu položiek ---------- */
 function itemCard(p, unknown=false){
+  const isKg = p.jednotka==="kg";
   const li=document.createElement("li");
   li.className="card";
   li.innerHTML=`
@@ -528,26 +546,30 @@ function itemCard(p, unknown=false){
       </div>
       <div class="head-right">
         <span class="code mono">kód ${p.kod}</span>
-        <span class="price-big">${unknown? "—" : eur(p.cena)+" €/ks"}</span>
+        <span class="price-big">${unknown? "—" : eur(p.cena)+" "+unitLabel(p.jednotka)}</span>
       </div>
     </div>
     ${p.obrazok? `<div class="card-mid"><img class="thumb-big" src="${escapeHtml(p.obrazok)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.style.display='none'"></div>`:""}
     <div class="card-actions">
       <div class="qty">
         <button aria-label="menej">−</button>
-        <input type="number" inputmode="numeric" min="1" value="1">
+        <input type="text" inputmode="${isKg?"decimal":"numeric"}" value="${isKg?"0,5":"1"}">
         <button aria-label="viac">＋</button>
       </div>
       <button class="btn add">Pridať</button>
     </div>`;
+  const step = isKg ? 0.1 : 1;
+  const minVal = isKg ? 0.1 : 1;
+  const parseQty = v => { const n=parseFloat(String(v).replace(",",".")); return isFinite(n) ? n : minVal; };
+  const fmtInput = n => isKg ? String(Math.round(n*1000)/1000).replace(".",",") : String(Math.round(n));
   const input=li.querySelector("input");
   input.addEventListener("focus",()=>{ setTimeout(()=>input.select(),0); });
-  input.addEventListener("blur",()=>{ if(!input.value.trim()) input.value=1; });
-  li.querySelectorAll(".qty button")[0].onclick=()=>{ input.value=Math.max(1,(parseInt(input.value)||1)-1); };
-  li.querySelectorAll(".qty button")[1].onclick=()=>{ input.value=(parseInt(input.value)||1)+1; };
+  input.addEventListener("blur",()=>{ if(!input.value.trim()) input.value=fmtInput(minVal); });
+  li.querySelectorAll(".qty button")[0].onclick=()=>{ input.value=fmtInput(Math.max(minVal, +(parseQty(input.value)-step).toFixed(3))); };
+  li.querySelectorAll(".qty button")[1].onclick=()=>{ input.value=fmtInput(+(parseQty(input.value)+step).toFixed(3)); };
   li.querySelector(".add").onclick=()=>{
-    addToCart(p, Math.max(1,parseInt(input.value)||1));
-    input.value=1;
+    addToCart(p, Math.max(minVal, parseQty(input.value)));
+    input.value=fmtInput(isKg?0.5:1);
   };
   return li;
 }
@@ -575,7 +597,7 @@ function renderResults(){
             </div>
           </div>
         </div>
-        <div class="step"><span class="step-n">2</span><span><b>Zadajte počet kusov</b> a pridajte do košíka.</span></div>
+        <div class="step"><span class="step-n">2</span><span><b>Zadajte počet kusov (alebo váhu)</b> a pridajte do košíka.</span></div>
         <div class="step"><span class="step-n">3</span><span>Pri pokladni už len ukážte <b>Košík</b> a nablokujú vám ho.</span></div>
       </div>`;
     ul.appendChild(li); return;
@@ -592,15 +614,16 @@ function renderResults(){
 /* ---------- košík ---------- */
 function addToCart(p, ks){
   const ex=cart.find(c=>c.kod===p.kod);
+  const unit=p.jednotka||"ks";
   if(ex){
     askConfirm(
-      `Túto skrutku už máte v košíku (<b>${escapeHtml(sizeOf(p))}, ${ex.ks} ks</b>).<br>Chcete pridať ešte <b>${ks} ks</b>?`,
-      ()=>{ ex.ks+=ks; render(); toast(`Pridané: ${sizeOf(p)} ×${ks}`); }
+      `Toto už máte v košíku (<b>${escapeHtml(sizeOf(p))}, ${fmtQty(ex.ks,unit)}</b>).<br>Chcete pridať ešte <b>${fmtQty(ks,unit)}</b>?`,
+      ()=>{ ex.ks=+(ex.ks+ks).toFixed(3); render(); toast(`Pridané: ${sizeOf(p)} × ${fmtQty(ks,unit)}`); }
     );
     return;
   }
-  cart.push({kod:p.kod,nazov:p.nazov,velkost:sizeOf(p),cena:p.cena||0,obrazok:p.obrazok||"",ks,done:false});
-  render(); toast(`Pridané: ${sizeOf(p)} ×${ks}`);
+  cart.push({kod:p.kod,nazov:p.nazov,velkost:sizeOf(p),cena:p.cena||0,obrazok:p.obrazok||"",ks,jednotka:unit,done:false});
+  render(); toast(`Pridané: ${sizeOf(p)} × ${fmtQty(ks,unit)}`);
 }
 
 /* potvrdzovacie okno */
@@ -624,6 +647,7 @@ function renderCart(){
   const box=$("#sumList"); box.innerHTML="";
   let grand=0;
   cart.forEach(c=>{
+    const unit=c.jednotka||"ks";
     const lt=c.cena*c.ks; grand+=lt;
     const row=document.createElement("div");
     row.className="sumrow"+(c.done?" done":"");
@@ -632,9 +656,9 @@ function renderCart(){
       ${c.obrazok? `<img class="sumthumb" src="${escapeHtml(c.obrazok)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:""}
       <div class="grow">
         <div class="code mono">${c.kod}</div>
-        <div class="meta">${escapeHtml(c.velkost||"")} ${c.velkost? "· ":""}${c.cena? eur(c.cena)+" €/ks":""}</div>
+        <div class="meta">${escapeHtml(c.velkost||"")} ${c.velkost? "· ":""}${c.cena? eur(c.cena)+" "+unitLabel(unit):""}</div>
       </div>
-      <div class="q">${c.ks}<small> ks</small></div>
+      <div class="q">${fmtQtyHtml(c.ks,unit)}</div>
       <div class="lt">${eur(lt)}€</div>
       <button class="sum-edit" aria-label="odobrať">✕</button>`;
     row.querySelector(".chk").onchange=e=>{ c.done=e.target.checked; row.classList.toggle("done",c.done); saveCart(); };
@@ -795,7 +819,7 @@ function renderHistory(){
   history.slice().reverse().forEach(rec=>{
     const el=document.createElement("div"); el.className="hist-card";
     const lines=rec.items.map(it=>
-      `<div class="hist-line"><span class="mono">${escapeHtml(it.kod)}</span><span class="hist-sz">${escapeHtml(it.velkost||"")}</span><span class="hist-ks">${it.ks} ks</span><span class="hist-lt">${eur((it.cena||0)*it.ks)}€</span></div>`
+      `<div class="hist-line"><span class="mono">${escapeHtml(it.kod)}</span><span class="hist-sz">${escapeHtml(it.velkost||"")}</span><span class="hist-ks">${fmtQty(it.ks,it.jednotka||"ks")}</span><span class="hist-lt">${eur((it.cena||0)*it.ks)}€</span></div>`
     ).join("");
     el.innerHTML=`<div class="hist-head"><span class="hist-dt">${fmtDateTime(rec.ts)}</span><span class="hist-total">${eur(rec.total)} €</span></div>${lines}`;
     box.appendChild(el);
@@ -830,7 +854,7 @@ $("#checkoutBtn").onclick=()=>{
   askConfirm("Hotovo? Týmto sa <b>vyprázdni košík</b> a nákup sa uloží do histórie.",
     ()=>{
       const total=cart.reduce((a,c)=>a+c.cena*c.ks,0);
-      history.push({ts:Date.now(), total, items:cart.map(c=>({kod:c.kod,velkost:c.velkost,nazov:c.nazov,ks:c.ks,cena:c.cena}))});
+      history.push({ts:Date.now(), total, items:cart.map(c=>({kod:c.kod,velkost:c.velkost,nazov:c.nazov,ks:c.ks,cena:c.cena,jednotka:c.jednotka||"ks"}))});
       saveHistory();
       cart.length=0; render(); showPanel("add"); toast("Nákup uložený do histórie");
     }, "Hotovo");
