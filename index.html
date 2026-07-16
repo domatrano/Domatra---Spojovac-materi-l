@@ -558,8 +558,8 @@ function itemCard(p, unknown=false){
       </div>
       <button class="btn add">Pridať</button>
     </div>`;
-  const step = isKg ? 0.1 : 1;
-  const minVal = isKg ? 0.1 : 1;
+  const step = isKg ? 0.05 : 1;
+  const minVal = isKg ? 0.005 : 1;
   const parseQty = v => { const n=parseFloat(String(v).replace(",",".")); return isFinite(n) ? n : minVal; };
   const fmtInput = n => isKg ? String(Math.round(n*1000)/1000).replace(".",",") : String(Math.round(n));
   const input=li.querySelector("input");
